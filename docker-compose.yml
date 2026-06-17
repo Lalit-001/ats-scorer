@@ -12,8 +12,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    # Not published to the host (reached internally as db:5432). Add a mapping
-    # like "5433:5432" if you want to inspect it with a local client.
+    # Container Postgres is on the internal network as db:5432. Published to the
+    # host on 5433 (not 5432) so it won't clash with a locally-installed Postgres.
+    ports:
+      - "5433:5432"
 
   redis:
     image: redis:7-alpine
