@@ -10,15 +10,25 @@ import { structureResume, classifyImages, structureLinks } from "./submodels.js"
 import type { GeminiCaller, ImageLoader, RawImage, ClassifiedImage } from "./submodels.js";
 import { evaluate, type EvaluationResult } from "./evaluator.js";
 
+export interface BasicDetails {
+  name_guess: string | null;
+  emails: string[];
+  phones: string[];
+  links: string[];
+  text_preview: string;
+}
+
 export interface ExtractionResult {
   pipeline_a: { text: string; links: unknown[] };
   pipeline_b: { images: RawImage[] };
   pipeline_c: { icon_links: unknown[] };
+  basic_details: BasicDetails;
 }
 
 export interface PipelineRepo {
   getApplication(id: string): Promise<{ resumePath: string; jobDescription: string }>;
   setStatus(id: string, status: string, opts?: { errorStage?: string; errorMessage?: string }): Promise<void>;
+  saveBasicDetails(id: string, basicDetails: BasicDetails): Promise<void>;
   startRun(id: string, stage: Stage): Promise<void>;
   finishRun(id: string, stage: Stage, output: unknown): Promise<void>;
   failRun(id: string, stage: Stage, error: string): Promise<void>;
@@ -66,6 +76,9 @@ export async function processApplication(id: string, deps: ProcessDeps): Promise
     await repo.setStatus(id, "processing");
 
     const raw = await runStage(repo, id, "extract", () => extract(id, app.resumePath));
+    // Persist the cheap, LLM-free basics + images BEFORE any Gemini call, so a
+    // later stage failure still leaves the dashboard with usable details.
+    await repo.saveBasicDetails(id, raw.basic_details);
     await repo.saveExtractedImages(id, raw.pipeline_b.images);
 
     const resume = await runStage(repo, id, "submodel_a", () => structureResume(raw.pipeline_a, call));

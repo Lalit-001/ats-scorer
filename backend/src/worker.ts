@@ -3,12 +3,16 @@ import { Worker } from "bullmq";
 import { config } from "./config.js";
 import { APPLICATION_QUEUE, bullConnection, redisClient, type ApplicationJob } from "./queue/queue.js";
 import { processApplication } from "./pipeline/orchestrator.js";
-import { PrismaPipelineRepo } from "./pipeline/repo.js";
+import { SequelizePipelineRepo } from "./pipeline/repo.js";
 import { extractViaParser } from "./pipeline/parserClient.js";
 import { loadImageFromDisk } from "./pipeline/imageLoader.js";
 import { buildGeminiCaller } from "./llm/factory.js";
+import { initDb } from "./db/models/index.js";
 
-const repo = new PrismaPipelineRepo();
+// API owns schema sync; the worker just needs a live connection.
+await initDb({ sync: false });
+
+const repo = new SequelizePipelineRepo();
 const call = buildGeminiCaller(redisClient);
 
 const worker = new Worker<ApplicationJob>(

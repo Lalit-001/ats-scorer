@@ -1,6 +1,13 @@
 /** Admin dashboard routes (all but /login require the admin bearer token). */
 import { Router } from "express";
-import { prisma } from "../db/prisma.js";
+import { fn, col } from "sequelize";
+import {
+  JobDescription,
+  Application,
+  PipelineRun,
+  ExtractedImage,
+  Evaluation,
+} from "../db/models/index.js";
 import { config } from "../config.js";
 import { login, requireAdmin } from "./auth.js";
 import { slugify } from "./slug.js";
@@ -8,6 +15,8 @@ import { enqueueApplication } from "../queue/queue.js";
 import { ah } from "./asyncHandler.js";
 
 export const adminRouter = Router();
+
+const toFileUrl = (p: string) => "/files" + p.slice(config.dataDir.length);
 
 adminRouter.post("/login", login);
 adminRouter.use(requireAdmin);
@@ -20,9 +29,7 @@ adminRouter.post(
       res.status(400).json({ error: "title and description are required" });
       return;
     }
-    const job = await prisma.jobDescription.create({
-      data: { title, description, slug: slugify(title) },
-    });
+    const job = await JobDescription.create({ title, description, slug: slugify(title) });
     res.status(201).json({ id: job.id, slug: job.slug, applyUrl: `/apply/${job.slug}` });
   }),
 );
@@ -30,16 +37,20 @@ adminRouter.post(
 adminRouter.get(
   "/jobs",
   ah(async (_req, res) => {
-    const jobs = await prisma.jobDescription.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { applications: true } } },
-    });
+    const jobs = await JobDescription.findAll({ order: [["createdAt", "DESC"]] });
+    const counts = (await Application.findAll({
+      attributes: ["jobId", [fn("COUNT", col("id")), "count"]],
+      group: ["jobId"],
+      raw: true,
+    })) as unknown as { jobId: string; count: string }[];
+    const countByJob = new Map(counts.map((c) => [c.jobId, Number(c.count)]));
+
     res.json(
       jobs.map((j) => ({
         id: j.id,
         title: j.title,
         slug: j.slug,
-        applicants: j._count.applications,
+        applicants: countByJob.get(j.id) ?? 0,
         createdAt: j.createdAt,
       })),
     );
@@ -49,10 +60,10 @@ adminRouter.get(
 adminRouter.get(
   "/jobs/:id/applications",
   ah(async (req, res) => {
-    const apps = await prisma.application.findMany({
+    const apps = await Application.findAll({
       where: { jobId: req.params.id },
-      orderBy: { createdAt: "desc" },
-      include: { evaluation: true },
+      order: [["createdAt", "DESC"]],
+      include: [{ model: Evaluation, as: "evaluation" }],
     });
     res.json(
       apps.map((a) => ({
@@ -62,6 +73,8 @@ adminRouter.get(
         status: a.status,
         errorStage: a.errorStage,
         errorMessage: a.errorMessage,
+        resumeUrl: toFileUrl(a.resumePath),
+        basicDetails: a.basicDetails ?? null,
         matchScore: a.evaluation?.matchScore ?? null,
         recommendation: a.evaluation?.recommendation ?? null,
         createdAt: a.createdAt,
@@ -73,16 +86,20 @@ adminRouter.get(
 adminRouter.get(
   "/applications/:id",
   ah(async (req, res) => {
-    const app = await prisma.application.findUnique({
-      where: { id: req.params.id },
-      include: { job: true, evaluation: true, extractedImages: true, pipelineRuns: true },
+    const app = await Application.findByPk(req.params.id, {
+      include: [
+        { model: JobDescription, as: "job" },
+        { model: Evaluation, as: "evaluation" },
+        { model: ExtractedImage, as: "extractedImages" },
+        { model: PipelineRun, as: "pipelineRuns" },
+      ],
     });
     if (!app) {
       res.status(404).json({ error: "Application not found" });
       return;
     }
-    const toUrl = (p: string) => "/files" + p.slice(config.dataDir.length);
-    const runByStage = (stage: string) => app.pipelineRuns.find((r) => r.stage === stage);
+    const runByStage = (stage: string) =>
+      (app.pipelineRuns ?? []).find((r) => r.stage === stage);
 
     res.json({
       id: app.id,
@@ -91,14 +108,20 @@ adminRouter.get(
       status: app.status,
       errorStage: app.errorStage,
       errorMessage: app.errorMessage,
-      job: { title: app.job.title, description: app.job.description },
+      resumeUrl: toFileUrl(app.resumePath),
+      basicDetails: app.basicDetails ?? null,
+      job: { title: app.job?.title, description: app.job?.description },
       resume: runByStage("submodel_a")?.structuredOutput ?? null,
       links: runByStage("submodel_c")?.structuredOutput ?? null,
-      runs: app.pipelineRuns.map((r) => ({ stage: r.stage, status: r.status, error: r.error })),
-      images: app.extractedImages.map((i) => ({
+      runs: (app.pipelineRuns ?? []).map((r) => ({
+        stage: r.stage,
+        status: r.status,
+        error: r.error,
+      })),
+      images: (app.extractedImages ?? []).map((i) => ({
         imageType: i.imageType,
         details: i.details,
-        url: toUrl(i.imagePath),
+        url: toFileUrl(i.imagePath),
       })),
       evaluation: app.evaluation
         ? {
@@ -115,20 +138,15 @@ adminRouter.get(
 adminRouter.post(
   "/applications/:id/reprocess",
   ah(async (req, res) => {
-    const app = await prisma.application.findUnique({ where: { id: req.params.id } });
+    const app = await Application.findByPk(req.params.id);
     if (!app) {
       res.status(404).json({ error: "Application not found" });
       return;
     }
-    await prisma.$transaction([
-      prisma.evaluation.deleteMany({ where: { applicationId: app.id } }),
-      prisma.extractedImage.deleteMany({ where: { applicationId: app.id } }),
-      prisma.pipelineRun.deleteMany({ where: { applicationId: app.id } }),
-      prisma.application.update({
-        where: { id: app.id },
-        data: { status: "uploaded", errorStage: null, errorMessage: null },
-      }),
-    ]);
+    await Evaluation.destroy({ where: { applicationId: app.id } });
+    await ExtractedImage.destroy({ where: { applicationId: app.id } });
+    await PipelineRun.destroy({ where: { applicationId: app.id } });
+    await app.update({ status: "uploaded", errorStage: null, errorMessage: null });
     await enqueueApplication(app.id);
     res.status(202).json({ id: app.id, status: "uploaded" });
   }),

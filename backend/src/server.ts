@@ -2,6 +2,7 @@
 import express, { type ErrorRequestHandler } from "express";
 import cors from "cors";
 import { config } from "./config.js";
+import { initDb } from "./db/models/index.js";
 import { publicRouter } from "./api/publicRoutes.js";
 import { adminRouter } from "./api/adminRoutes.js";
 
@@ -24,4 +25,10 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 };
 app.use(errorHandler);
 
-app.listen(config.port, () => console.log(`[api] listening on :${config.port}`));
+// The API owns schema sync; it creates/updates tables before serving traffic.
+initDb({ sync: true })
+  .then(() => app.listen(config.port, () => console.log(`[api] listening on :${config.port}`)))
+  .catch((err) => {
+    console.error("[api] failed to initialise database:", err);
+    process.exit(1);
+  });
