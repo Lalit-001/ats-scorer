@@ -14,8 +14,8 @@ resume against the JD to produce a match score and recommendation.
 - **Data:** PostgreSQL (Prisma) + Redis
 - **Local:** Docker Compose
 
-See [`docs/superpowers/specs/2026-06-17-ats-resume-scorer-design.md`](docs/superpowers/specs/2026-06-17-ats-resume-scorer-design.md)
-for the full design.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system diagrams (topology, sequence, orchestration, key pool, data model)
+- [`docs/superpowers/specs/2026-06-17-ats-resume-scorer-design.md`](docs/superpowers/specs/2026-06-17-ats-resume-scorer-design.md) — full design spec
 
 ## Prerequisites
 
