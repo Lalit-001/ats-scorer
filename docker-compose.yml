@@ -12,8 +12,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    ports:
-      - "5432:5432"
+    # Not published to the host (reached internally as db:5432). Add a mapping
+    # like "5433:5432" if you want to inspect it with a local client.
 
   redis:
     image: redis:7-alpine
@@ -22,8 +22,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    ports:
-      - "6379:6379"
+    # Not published to the host (reached internally as redis:6379) to avoid
+    # clashing with a local Redis. Add "6380:6379" if you want host access.
 
   parser:
     build: ./parser
