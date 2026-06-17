@@ -31,8 +31,12 @@ cp .env.example .env
 #   edit .env:
 #     GEMINI_API_KEYS=key1,key2,key3      <- your real keys
 #     ADMIN_PASSWORD=something-you-pick
+docker compose down -v        # only needed once, to clear any old tables from earlier runs
 docker compose up --build
 ```
+
+On boot the `api` service runs `npm run migrate` (sequelize-cli) to apply pending migrations
+before serving. Schema is owned entirely by migrations — there is no `sync`.
 
 Services and ports:
 
@@ -53,6 +57,22 @@ Services and ports:
    detected certificates/links, match score, strengths/gaps, and recommendation.
 5. If a stage breaks (e.g. Gemini quota), the row shows **failed** with the broken stage and a
    **Re-process** button.
+
+## Database migrations
+
+Schema changes go through **sequelize-cli** migrations in `backend/migrations/` (one file per
+change, with `up`/`down` so every change is reversible). Run these from `backend/` (or inside the
+`api` container):
+
+```bash
+npm run migrate                              # apply pending migrations
+npm run migrate:undo                         # roll back the most recent migration
+npm run migrate:status                       # list applied / pending
+npm run migration:generate -- --name add_x   # scaffold a new migration file
+```
+
+Generated migrations are CommonJS (`migrations/package.json` pins `"type": "commonjs"` so they work
+inside this ESM project). DB connection comes from `DATABASE_URL` via `config/config.cjs`.
 
 ## Troubleshooting
 
