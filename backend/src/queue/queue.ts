@@ -1,13 +1,23 @@
 /** BullMQ queue shared by the API (producer) and worker (consumer). */
-import { Queue } from "bullmq";
+import { Queue, type ConnectionOptions } from "bullmq";
 import IORedis from "ioredis";
 import { config } from "../config.js";
 
 export const APPLICATION_QUEUE = "application-processing";
 
-export const connection = new IORedis(config.redisUrl, { maxRetriesPerRequest: null });
+// Give BullMQ connection *options* (not a shared instance) so it manages its own
+// client — this sidesteps the ioredis version clash from BullMQ's bundled copy.
+const url = new URL(config.redisUrl);
+export const bullConnection: ConnectionOptions = {
+  host: url.hostname,
+  port: Number(url.port || 6379),
+  maxRetriesPerRequest: null,
+};
 
-export const applicationQueue = new Queue(APPLICATION_QUEUE, { connection });
+// Separate plain client used only for the Gemini key-usage counters.
+export const redisClient = new IORedis(config.redisUrl);
+
+export const applicationQueue = new Queue(APPLICATION_QUEUE, { connection: bullConnection });
 
 export interface ApplicationJob {
   applicationId: string;
