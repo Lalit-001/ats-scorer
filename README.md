@@ -61,11 +61,3 @@ Services and ports:
 - **`failed` at `extract`** → the parser couldn't read the PDF; check `docker compose logs parser`.
 - **Reset the database** → `docker compose down -v` (drops the Postgres + uploads volumes).
 
-## Tests
-
-```bash
-# parser (Python)
-cd parser && python -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/pytest
-# backend (Node)
-cd backend && npm install && npm test
-```

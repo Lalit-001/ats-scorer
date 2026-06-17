@@ -29,3 +29,8 @@ storage/
 .DS_Store
 .idea/
 .vscode/
+
+# Unit tests are not part of this project (used only ad-hoc for local verification)
+tests/
+*.test.ts
+*.spec.ts
