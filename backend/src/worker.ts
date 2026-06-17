@@ -9,8 +9,8 @@ import { loadImageFromDisk } from "./pipeline/imageLoader.js";
 import { buildGeminiCaller } from "./llm/factory.js";
 import { initDb } from "./db/models/index.js";
 
-// API owns schema sync; the worker just needs a live connection.
-await initDb({ sync: false });
+// API owns migrations; the worker just needs a live connection.
+await initDb();
 
 const repo = new SequelizePipelineRepo();
 const call = buildGeminiCaller(redisClient);

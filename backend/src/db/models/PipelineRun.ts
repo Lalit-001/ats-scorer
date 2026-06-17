@@ -44,5 +44,5 @@ PipelineRun.init(
     startedAt: { type: DataTypes.DATE, allowNull: true },
     finishedAt: { type: DataTypes.DATE, allowNull: true },
   },
-  { sequelize, modelName: "PipelineRun", tableName: "pipeline_runs" },
+  { sequelize, modelName: "PipelineRun", tableName: "pipeline_runs", timestamps: false },
 );

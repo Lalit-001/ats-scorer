@@ -25,10 +25,11 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 };
 app.use(errorHandler);
 
-// The API owns schema sync; it creates/updates tables before serving traffic.
-initDb({ sync: true })
+// Migrations run via `npm run migrate` (start:api) before this; here we just
+// confirm the connection, then serve.
+initDb()
   .then(() => app.listen(config.port, () => console.log(`[api] listening on :${config.port}`)))
   .catch((err) => {
-    console.error("[api] failed to initialise database:", err);
+    console.error("[api] failed to connect to database:", err);
     process.exit(1);
   });

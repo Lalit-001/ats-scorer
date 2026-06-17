@@ -24,10 +24,7 @@ Evaluation.belongsTo(Application, { foreignKey: "applicationId" });
 
 export { sequelize, JobDescription, Application, PipelineRun, ExtractedImage, Evaluation };
 
-/** Authenticate, and (api only) create/sync tables. */
-export async function initDb({ sync }: { sync: boolean }): Promise<void> {
+/** Verify the DB connection. Schema is owned by migrations, never by sync. */
+export async function initDb(): Promise<void> {
   await sequelize.authenticate();
-  if (sync) {
-    await sequelize.sync({ alter: true });
-  }
 }

@@ -33,5 +33,5 @@ ExtractedImage.init(
     },
     details: { type: DataTypes.JSONB, allowNull: true },
   },
-  { sequelize, modelName: "ExtractedImage", tableName: "extracted_images" },
+  { sequelize, modelName: "ExtractedImage", tableName: "extracted_images", timestamps: false },
 );
