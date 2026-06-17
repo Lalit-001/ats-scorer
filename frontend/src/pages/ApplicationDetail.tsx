@@ -48,7 +48,12 @@ export function ApplicationDetailPage() {
 
       <div className="card">
         <div className="row-between">
-          <StatusBadge status={app.status} />
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <StatusBadge status={app.status} />
+            <a href={`${API_BASE}${app.resumeUrl}`} target="_blank" rel="noreferrer">
+              📄 View resume (PDF)
+            </a>
+          </div>
           {app.status === "failed" && (
             <button className="secondary" onClick={reprocess}>
               Re-process
@@ -61,6 +66,52 @@ export function ApplicationDetailPage() {
           </div>
         )}
       </div>
+
+      {app.basicDetails && (
+        <div className="card">
+          <h2>Basic details (from resume)</h2>
+          <p className="muted">
+            Parsed by the PDF pipeline without AI — always available, even when the AI analysis fails.
+          </p>
+          {app.basicDetails.name_guess && (
+            <p>
+              <b>Name (detected):</b> {app.basicDetails.name_guess}
+            </p>
+          )}
+          {app.basicDetails.emails.length > 0 && (
+            <p>
+              <b>Emails:</b> {app.basicDetails.emails.join(", ")}
+            </p>
+          )}
+          {app.basicDetails.phones.length > 0 && (
+            <p>
+              <b>Phones:</b> {app.basicDetails.phones.join(", ")}
+            </p>
+          )}
+          {app.basicDetails.links.length > 0 && (
+            <>
+              <label>Links</label>
+              <div className="pill-row">
+                {app.basicDetails.links.map((l, i) => (
+                  <a className="pill" key={i} href={l} target="_blank" rel="noreferrer">
+                    {l}
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+          {app.basicDetails.text_preview && (
+            <details style={{ marginTop: 12 }}>
+              <summary className="muted" style={{ cursor: "pointer" }}>
+                Resume text preview
+              </summary>
+              <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, marginTop: 8 }}>
+                {app.basicDetails.text_preview}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
 
       {app.evaluation && (
         <div className="card">

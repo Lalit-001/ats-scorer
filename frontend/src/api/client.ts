@@ -30,6 +30,14 @@ export interface JobSummary {
   createdAt: string;
 }
 
+export interface BasicDetails {
+  name_guess: string | null;
+  emails: string[];
+  phones: string[];
+  links: string[];
+  text_preview: string;
+}
+
 export interface ApplicantRow {
   id: string;
   name: string;
@@ -37,6 +45,8 @@ export interface ApplicantRow {
   status: "uploaded" | "processing" | "completed" | "failed";
   errorStage: string | null;
   errorMessage: string | null;
+  resumeUrl: string;
+  basicDetails: BasicDetails | null;
   matchScore: number | null;
   recommendation: string | null;
   createdAt: string;
@@ -49,6 +59,8 @@ export interface ApplicationDetail {
   status: ApplicantRow["status"];
   errorStage: string | null;
   errorMessage: string | null;
+  resumeUrl: string;
+  basicDetails: BasicDetails | null;
   job: { title: string; description: string };
   resume: any;
   links: any;

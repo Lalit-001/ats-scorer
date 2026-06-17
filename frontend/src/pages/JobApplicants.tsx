@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type ApplicantRow } from "../api/client";
+import { api, API_BASE, type ApplicantRow } from "../api/client";
 import { StatusBadge, Recommendation } from "../components/StatusBadge";
 
 export function JobApplicants() {
@@ -53,6 +53,17 @@ export function JobApplicants() {
                   <td>
                     <Link to={`/admin/applications/${a.id}`}>{a.name}</Link>
                     <div className="muted">{a.email}</div>
+                    {a.basicDetails?.phones?.[0] && (
+                      <div className="muted">{a.basicDetails.phones[0]}</div>
+                    )}
+                    <a
+                      href={`${API_BASE}${a.resumeUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 13 }}
+                    >
+                      📄 Resume
+                    </a>
                     {a.status === "failed" && a.errorMessage && (
                       <div className="muted" style={{ color: "var(--red)" }}>
                         ⚠ {a.errorStage}: {a.errorMessage}
