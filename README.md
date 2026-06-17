@@ -11,7 +11,7 @@ resume against the JD to produce a match score and recommendation.
 - **Worker:** Node + BullMQ (pipeline orchestration)
 - **Parser:** Python + FastAPI + PyMuPDF (PDF extraction only)
 - **LLM:** Gemini 2.5 Flash (rotating API key pool)
-- **Data:** PostgreSQL (Prisma) + Redis
+- **Data:** PostgreSQL (Sequelize) + Redis
 - **Local:** Docker Compose
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system diagrams (topology, sequence, orchestration, key pool, data model)

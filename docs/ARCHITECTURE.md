@@ -20,7 +20,7 @@ flowchart LR
     WK["worker<br/>Node + BullMQ"]
     PR["parser<br/>Python + FastAPI<br/>PyMuPDF :8000"]
     RD[("redis<br/>queue + key counters")]
-    DB[("postgres<br/>Prisma")]
+    DB[("postgres<br/>Sequelize")]
     VOL["shared volume<br/>data: PDFs and images"]
   end
 
@@ -107,7 +107,8 @@ partial scoring. Recovery is an explicit admin **Re-process**.
 flowchart TD
   start(["job: applicationId"]) --> proc["status = processing"]
   proc --> ex["Stage 1: extract<br/>POST parser /extract"]
-  ex -->|ok| sa["Stage 2: submodel_a<br/>structure resume text"]
+  ex -->|ok| basics["persist basic details + images<br/>LLM-free, survives later failures"]
+  basics --> sa["Stage 2: submodel_a<br/>structure resume text"]
   sa -->|ok| sb["Stage 3: submodel_b<br/>vision classify images"]
   sb -->|ok| sc["Stage 4: submodel_c<br/>categorize icon links"]
   sc -->|ok| me["Stage 5: main_eval<br/>score against JD"]
@@ -182,6 +183,7 @@ erDiagram
     enum status "uploaded|processing|completed|failed"
     string errorStage
     string errorMessage
+    json basicDetails "LLM-free: name, emails, phones, links, preview"
   }
   PipelineRun {
     uuid id PK
