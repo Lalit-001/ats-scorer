@@ -8,9 +8,9 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/admin/login" replace />;
   }
   return (
-    <>
+    <div className="min-h-screen bg-slate-100">
       <TopBar />
-      <div className="container">{children}</div>
-    </>
+      <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
+    </div>
   );
 }

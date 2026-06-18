@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { buildEvalPrompt, EVAL_SCHEMA } from "../llm/prompts.js";
+import { htmlToText } from "../llm/htmlToText.js";
 import type { GeminiCaller } from "./submodels.js";
 
 export const EvaluationResult = z.object({
@@ -19,6 +20,10 @@ export async function evaluate(
   structured: unknown,
   call: GeminiCaller,
 ): Promise<EvaluationResult> {
-  const res = await call({ prompt: buildEvalPrompt(jobDescription, structured), schema: EVAL_SCHEMA });
+  // The JD may be rich-text HTML; feed the evaluator clean plain text.
+  const res = await call({
+    prompt: buildEvalPrompt(htmlToText(jobDescription), structured),
+    schema: EVAL_SCHEMA,
+  });
   return EvaluationResult.parse(res);
 }

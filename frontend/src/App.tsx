@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Apply } from "./pages/Apply";
 import { Login } from "./pages/Login";
 import { AdminJobs } from "./pages/AdminJobs";
+import { EditJob } from "./pages/EditJob";
 import { JobApplicants } from "./pages/JobApplicants";
 import { ApplicationDetailPage } from "./pages/ApplicationDetail";
 
@@ -24,6 +25,14 @@ export function App() {
         element={
           <ProtectedRoute>
             <JobApplicants />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/jobs/:id/edit"
+        element={
+          <ProtectedRoute>
+            <EditJob />
           </ProtectedRoute>
         }
       />

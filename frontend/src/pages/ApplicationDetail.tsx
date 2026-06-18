@@ -1,10 +1,36 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api, API_BASE, type ApplicationDetail } from "../api/client";
 import { StatusBadge, Recommendation } from "../components/StatusBadge";
+import { ScoreMeter } from "../components/ScoreMeter";
+import { PageHeader } from "../components/ui/PageHeader";
+import { Card } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { Badge, type Tone } from "../components/ui/Badge";
+
+const SECTION_LABEL = "text-xs font-medium uppercase tracking-wide text-slate-500";
+const HEADING = "mb-3 text-sm font-semibold text-slate-900";
+
+function Pill({ children, href }: { children: React.ReactNode; href?: string }) {
+  const cls =
+    "inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-700";
+  return href ? (
+    <a href={href} target="_blank" rel="noreferrer" className={`${cls} hover:bg-indigo-50 hover:text-indigo-700`}>
+      {children}
+    </a>
+  ) : (
+    <span className={cls}>{children}</span>
+  );
+}
+
+const STAGE_TONE: Record<string, Tone> = {
+  done: "emerald",
+  failed: "rose",
+};
 
 export function ApplicationDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [app, setApp] = useState<ApplicationDetail | null>(null);
   const [error, setError] = useState("");
 
@@ -28,191 +54,236 @@ export function ApplicationDetailPage() {
     load();
   };
 
-  if (error) return <div className="error-box">{error}</div>;
-  if (!app) return <div className="card">Loading…</div>;
+  if (error) {
+    return (
+      <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        {error}
+      </div>
+    );
+  }
+  if (!app) return <Card className="text-sm text-slate-500">Loading…</Card>;
 
   const resume = app.resume ?? {};
   const links: { category: string; url: string }[] = app.links?.links ?? [];
 
   return (
     <>
-      <div className="row-between">
-        <h1>{app.name}</h1>
-        <Link to={`/admin/applications/${app.id}`} onClick={(e) => { e.preventDefault(); history.back(); }}>
-          ← Back
-        </Link>
-      </div>
-      <p className="muted">
-        {app.email} · applying for <b>{app.job.title}</b>
-      </p>
+      <PageHeader
+        title={app.name}
+        subtitle={
+          <>
+            {app.email} · applying for <span className="font-medium text-slate-700">{app.job.title}</span>
+          </>
+        }
+        actions={
+          <button
+            onClick={() => navigate(-1)}
+            className="text-sm font-medium text-indigo-600 hover:underline"
+          >
+            ← Back
+          </button>
+        }
+      />
 
-      <div className="card">
-        <div className="row-between">
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+      {/* Status + resume */}
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <StatusBadge status={app.status} />
-            <a href={`${API_BASE}${app.resumeUrl}`} target="_blank" rel="noreferrer">
+            <a
+              href={`${API_BASE}${app.resumeUrl}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium text-indigo-600 hover:underline"
+            >
               📄 View resume (PDF)
             </a>
           </div>
           {app.status === "failed" && (
-            <button className="secondary" onClick={reprocess}>
+            <Button variant="secondary" size="sm" onClick={reprocess}>
               Re-process
-            </button>
+            </Button>
           )}
         </div>
         {app.status === "failed" && (
-          <div className="error-box" style={{ marginTop: 12 }}>
+          <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             Pipeline failed at <b>{app.errorStage}</b>: {app.errorMessage}
           </div>
         )}
-      </div>
+      </Card>
 
+      {/* Evaluation */}
+      {app.evaluation && (
+        <Card className="mb-4">
+          <h2 className={HEADING}>Evaluation</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <ScoreMeter score={app.evaluation.matchScore} />
+            <Recommendation value={app.evaluation.recommendation} />
+          </div>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <div>
+              <p className={SECTION_LABEL}>Strengths</p>
+              <ul className="mt-2 space-y-1.5">
+                {app.evaluation.strengths.map((s, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-700">
+                    <span className="text-emerald-500">+</span>
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className={SECTION_LABEL}>Gaps</p>
+              <ul className="mt-2 space-y-1.5">
+                {app.evaluation.gaps.map((g, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-700">
+                    <span className="text-rose-400">−</span>
+                    {g}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Basic details (LLM-free) */}
       {app.basicDetails && (
-        <div className="card">
-          <h2>Basic details (from resume)</h2>
-          <p className="muted">
+        <Card className="mb-4">
+          <h2 className={HEADING}>Basic details (from resume)</h2>
+          <p className="-mt-2 mb-3 text-xs text-slate-400">
             Parsed by the PDF pipeline without AI — always available, even when the AI analysis fails.
           </p>
-          {app.basicDetails.name_guess && (
-            <p>
-              <b>Name (detected):</b> {app.basicDetails.name_guess}
-            </p>
-          )}
-          {app.basicDetails.emails.length > 0 && (
-            <p>
-              <b>Emails:</b> {app.basicDetails.emails.join(", ")}
-            </p>
-          )}
-          {app.basicDetails.phones.length > 0 && (
-            <p>
-              <b>Phones:</b> {app.basicDetails.phones.join(", ")}
-            </p>
-          )}
+          <dl className="space-y-2 text-sm">
+            {app.basicDetails.name_guess && (
+              <div className="flex gap-2">
+                <dt className="w-24 shrink-0 text-slate-500">Name</dt>
+                <dd className="text-slate-800">{app.basicDetails.name_guess}</dd>
+              </div>
+            )}
+            {app.basicDetails.emails.length > 0 && (
+              <div className="flex gap-2">
+                <dt className="w-24 shrink-0 text-slate-500">Emails</dt>
+                <dd className="font-mono text-xs text-slate-800">
+                  {app.basicDetails.emails.join(", ")}
+                </dd>
+              </div>
+            )}
+            {app.basicDetails.phones.length > 0 && (
+              <div className="flex gap-2">
+                <dt className="w-24 shrink-0 text-slate-500">Phones</dt>
+                <dd className="font-mono text-xs text-slate-800">
+                  {app.basicDetails.phones.join(", ")}
+                </dd>
+              </div>
+            )}
+          </dl>
           {app.basicDetails.links.length > 0 && (
-            <>
-              <label>Links</label>
-              <div className="pill-row">
+            <div className="mt-3">
+              <p className={SECTION_LABEL}>Links</p>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {app.basicDetails.links.map((l, i) => (
-                  <a className="pill" key={i} href={l} target="_blank" rel="noreferrer">
+                  <Pill key={i} href={l}>
                     {l}
-                  </a>
+                  </Pill>
                 ))}
               </div>
-            </>
+            </div>
           )}
           {app.basicDetails.text_preview && (
-            <details style={{ marginTop: 12 }}>
-              <summary className="muted" style={{ cursor: "pointer" }}>
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700">
                 Resume text preview
               </summary>
-              <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, marginTop: 8 }}>
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-600">
                 {app.basicDetails.text_preview}
               </pre>
             </details>
           )}
-        </div>
+        </Card>
       )}
 
-      {app.evaluation && (
-        <div className="card">
-          <h2>Evaluation</h2>
-          <div className="row-between">
-            <div className="score" style={{ fontSize: 28 }}>
-              {app.evaluation.matchScore}%
-            </div>
-            <Recommendation value={app.evaluation.recommendation} />
-          </div>
-          <div className="grid-2" style={{ marginTop: 12 }}>
-            <div>
-              <label>Strengths</label>
-              <ul className="clean">
-                {app.evaluation.strengths.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <label>Gaps</label>
-              <ul className="clean">
-                {app.evaluation.gaps.map((g, i) => (
-                  <li key={i}>{g}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Parsed resume */}
       {app.resume && (
-        <div className="card">
-          <h2>Parsed resume</h2>
+        <Card className="mb-4">
+          <h2 className={HEADING}>Parsed resume</h2>
           {resume.contact && (
-            <p className="muted">
-              {resume.contact.name} · {resume.contact.email} · {resume.contact.location}
+            <p className="mb-3 text-sm text-slate-500">
+              {[resume.contact.name, resume.contact.email, resume.contact.location]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           )}
           {resume.skills?.length > 0 && (
-            <>
-              <label>Skills</label>
-              <div className="pill-row">
+            <div className="mb-4">
+              <p className={SECTION_LABEL}>Skills</p>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {resume.skills.map((s: string, i: number) => (
-                  <span className="pill" key={i}>
-                    {s}
-                  </span>
+                  <Pill key={i}>{s}</Pill>
                 ))}
               </div>
-            </>
+            </div>
           )}
           {resume.experience?.length > 0 && (
-            <>
-              <label style={{ marginTop: 14 }}>Experience</label>
-              <ul className="clean">
+            <div className="mb-4">
+              <p className={SECTION_LABEL}>Experience</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
                 {resume.experience.map((x: any, i: number) => (
                   <li key={i}>
-                    <b>{x.role}</b> — {x.company} {x.duration && `(${x.duration})`}
+                    <span className="font-medium text-slate-900">{x.role}</span> — {x.company}{" "}
+                    {x.duration && <span className="text-slate-400">({x.duration})</span>}
                   </li>
                 ))}
               </ul>
-            </>
+            </div>
           )}
           {resume.education?.length > 0 && (
-            <>
-              <label style={{ marginTop: 14 }}>Education</label>
-              <ul className="clean">
+            <div>
+              <p className={SECTION_LABEL}>Education</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
                 {resume.education.map((x: any, i: number) => (
                   <li key={i}>
                     {x.degree} — {x.institution} {x.year}
                   </li>
                 ))}
               </ul>
-            </>
+            </div>
           )}
-        </div>
+        </Card>
       )}
 
+      {/* Links */}
       {links.length > 0 && (
-        <div className="card">
-          <h2>Links (incl. icon-embedded)</h2>
-          <div className="pill-row">
+        <Card className="mb-4">
+          <h2 className={HEADING}>Links (incl. icon-embedded)</h2>
+          <div className="flex flex-wrap gap-2">
             {links.map((l, i) => (
-              <a className="pill" key={i} href={l.url} target="_blank" rel="noreferrer">
-                {l.category}: {l.url}
-              </a>
+              <Pill key={i} href={l.url}>
+                <span className="mr-1 font-medium text-indigo-600">{l.category}</span>
+                {l.url}
+              </Pill>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
+      {/* Images */}
       {app.images.length > 0 && (
-        <div className="card">
-          <h2>Detected images</h2>
-          <div className="grid-2">
+        <Card className="mb-4">
+          <h2 className={HEADING}>Detected images</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
             {app.images.map((img, i) => (
-              <div key={i}>
-                <img className="cert-img" src={`${API_BASE}${img.url}`} alt={img.imageType ?? "image"} />
-                <div className="muted">{img.imageType ?? "unclassified"}</div>
+              <div key={i} className="rounded-lg border border-slate-200 p-3">
+                <img
+                  className="max-h-40 rounded-md border border-slate-200"
+                  src={`${API_BASE}${img.url}`}
+                  alt={img.imageType ?? "image"}
+                />
+                <div className="mt-2 text-xs font-medium text-slate-700">
+                  {img.imageType ?? "unclassified"}
+                </div>
                 {img.details && (
-                  <div className="muted">
+                  <div className="text-xs text-slate-500">
                     {Object.entries(img.details)
                       .map(([k, v]) => `${k}: ${v}`)
                       .join(" · ")}
@@ -221,38 +292,33 @@ export function ApplicationDetailPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
-      <div className="card">
-        <h2>Pipeline stages</h2>
-        <table>
-          <thead>
+      {/* Pipeline stages */}
+      <Card noPadding className="overflow-hidden">
+        <h2 className={`${HEADING} px-6 pt-6`}>Pipeline stages</h2>
+        <table className="w-full border-collapse text-sm">
+          <thead className="border-y border-slate-100 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th>Stage</th>
-              <th>Status</th>
-              <th>Error</th>
+              <th className="px-6 py-2.5">Stage</th>
+              <th className="px-6 py-2.5">Status</th>
+              <th className="px-6 py-2.5">Error</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {app.runs.map((r, i) => (
               <tr key={i}>
-                <td>{r.stage}</td>
-                <td>
-                  <span
-                    className={`badge badge-${
-                      r.status === "done" ? "completed" : r.status === "failed" ? "failed" : "processing"
-                    }`}
-                  >
-                    {r.status}
-                  </span>
+                <td className="px-6 py-2.5 font-mono text-xs text-slate-700">{r.stage}</td>
+                <td className="px-6 py-2.5">
+                  <Badge tone={STAGE_TONE[r.status] ?? "amber"}>{r.status}</Badge>
                 </td>
-                <td className="muted">{r.error ?? ""}</td>
+                <td className="px-6 py-2.5 text-xs text-slate-500">{r.error ?? ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
     </>
   );
 }
