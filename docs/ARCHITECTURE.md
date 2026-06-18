@@ -75,6 +75,7 @@ sequenceDiagram
   C->>FE: submit name, email, PDF
   FE->>API: POST /api/jobs/:slug/apply
   API->>API: validate PDF + size
+  API->>DB: reject if email already applied to job (409)
   API->>VOL: save resume to /data
   API->>DB: create Application status=uploaded
   API->>RD: enqueue process_application
@@ -189,12 +190,12 @@ erDiagram
     uuid id PK
     uuid jobId FK
     string name
-    string email
+    string email "unique per job, case-insensitive"
     string resumePath
     enum status "uploaded|processing|completed|failed"
     string errorStage
     string errorMessage
-    json basicDetails "LLM-free: name, emails, phones, links, preview"
+    json basicDetails "LLM-free: name, location, emails, phones, links, preview"
   }
   PipelineRun {
     uuid id PK
