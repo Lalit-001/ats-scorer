@@ -58,6 +58,37 @@ adminRouter.get(
 );
 
 adminRouter.get(
+  "/jobs/:id",
+  ah(async (req, res) => {
+    const job = await JobDescription.findByPk(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    res.json({ id: job.id, title: job.title, slug: job.slug, description: job.description });
+  }),
+);
+
+adminRouter.patch(
+  "/jobs/:id",
+  ah(async (req, res) => {
+    const { title, description } = req.body ?? {};
+    if (!title || !description) {
+      res.status(400).json({ error: "title and description are required" });
+      return;
+    }
+    const job = await JobDescription.findByPk(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    // Slug is intentionally left unchanged so existing apply links keep working.
+    await job.update({ title, description });
+    res.json({ id: job.id, title: job.title, slug: job.slug });
+  }),
+);
+
+adminRouter.get(
   "/jobs/:id/applications",
   ah(async (req, res) => {
     const apps = await Application.findAll({

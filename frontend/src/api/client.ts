@@ -30,6 +30,13 @@ export interface JobSummary {
   createdAt: string;
 }
 
+export interface AdminJob {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+}
+
 export interface BasicDetails {
   name_guess: string | null;
   emails: string[];
@@ -96,6 +103,20 @@ export const api = {
 
   listJobs: (): Promise<JobSummary[]> =>
     fetch(`${API_BASE}/api/admin/jobs`, { headers: authHeaders() }).then(handle),
+
+  getAdminJob: (id: string): Promise<AdminJob> =>
+    fetch(`${API_BASE}/api/admin/jobs/${id}`, { headers: authHeaders() }).then(handle),
+
+  updateJob: (
+    id: string,
+    title: string,
+    description: string,
+  ): Promise<{ id: string; slug: string; title: string }> =>
+    fetch(`${API_BASE}/api/admin/jobs/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ title, description }),
+    }).then(handle),
 
   listApplications: (jobId: string): Promise<ApplicantRow[]> =>
     fetch(`${API_BASE}/api/admin/jobs/${jobId}/applications`, { headers: authHeaders() }).then(handle),

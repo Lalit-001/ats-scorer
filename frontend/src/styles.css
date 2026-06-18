@@ -1,249 +1,44 @@
-:root {
-  --bg: #0f172a;
-  --surface: #ffffff;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --green: #16a34a;
-  --amber: #d97706;
-  --red: #dc2626;
-  --blue: #2563eb;
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Design tokens — a recruiting "scoring console": Plex Sans for UI,
+   Plex Mono for data (scores, %, emails, phones, IDs). */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
 }
 
-* {
-  box-sizing: border-box;
+:root {
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #f1f5f9;
-  color: var(--text);
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  color: var(--primary);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
-
-.topbar {
-  background: var(--bg);
-  color: #fff;
-  padding: 14px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.topbar .brand {
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.topbar a {
-  color: #c7d2fe;
-}
-
-.container {
-  max-width: 1040px;
-  margin: 28px auto;
-  padding: 0 20px;
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 22px;
-  margin-bottom: 18px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-h1 {
-  font-size: 22px;
-  margin: 0 0 4px;
-}
-h2 {
-  font-size: 16px;
-  margin: 0 0 14px;
-  color: var(--text);
-}
-.muted {
-  color: var(--muted);
-  font-size: 14px;
-}
-
-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  margin: 12px 0 6px;
-  color: #334155;
-}
-input,
-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: inherit;
-}
-textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-button {
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-button:hover {
-  background: var(--primary-hover);
-}
-button.secondary {
-  background: #fff;
-  color: var(--primary);
-  border: 1px solid var(--border);
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  text-align: left;
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-th {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.badge-uploaded {
-  background: #e0e7ff;
-  color: #3730a3;
-}
-.badge-processing {
-  background: #fef3c7;
-  color: #92400e;
-}
-.badge-completed {
-  background: #dcfce7;
-  color: #166534;
-}
-.badge-failed {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.rec {
-  font-weight: 700;
-}
-.rec-strong_match {
-  color: var(--green);
-}
-.rec-good_match {
-  color: var(--blue);
-}
-.rec-reject {
-  color: var(--red);
-}
-
-.score {
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.error-box {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  padding: 12px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  margin: 10px 0;
-}
-
-.pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
-.pill {
-  background: #f1f5f9;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 13px;
-}
-
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-@media (max-width: 720px) {
-  .grid-2 {
-    grid-template-columns: 1fr;
+/* Respect reduced-motion globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-.cert-img {
-  max-width: 160px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+/* The rich job description renders with the same `prose` treatment in the
+   editor and on the candidate portal, so what an admin types looks identical
+   to what a candidate sees. */
+.jd-prose {
+  max-width: none;
 }
-
-.link-copy {
-  background: #f8fafc;
-  border: 1px dashed var(--border);
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-family: monospace;
-  font-size: 13px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-ul.clean {
-  margin: 6px 0;
-  padding-left: 18px;
-}
-ul.clean li {
-  margin: 4px 0;
-  font-size: 14px;
+.jd-prose :where(p):not(:first-child) {
+  margin-top: 0.75em;
 }
