@@ -28,6 +28,13 @@ const DIM_LABELS: Record<string, string> = {
   domain_knowledge: "Domain knowledge",
 };
 
+// How each link was found in the resume — shown as a small hint on the dashboard.
+const SOURCE_LABEL: Record<string, string> = {
+  hyperlink: "link",
+  icon: "behind image",
+  plaintext: "text",
+};
+
 // Show recognized link groups first, in a sensible order; "other" always last.
 const LINK_GROUP_ORDER = [
   "linkedin",
@@ -280,6 +287,11 @@ export function ApplicationDetailPage() {
                   {linksByCategory[category].map((l, i) => (
                     <Pill key={i} href={l.url}>
                       {l.url}
+                      {l.source && (
+                        <span className="ml-1.5 text-[10px] text-slate-400">
+                          {SOURCE_LABEL[l.source] ?? l.source}
+                        </span>
+                      )}
                     </Pill>
                   ))}
                 </div>

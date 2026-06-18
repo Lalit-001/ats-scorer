@@ -5,7 +5,7 @@ from .pipelines.basic_details import extract_basic_details
 from .pipelines.extract_images import extract_images, annotate_image_flags
 from .pipelines.extract_links import extract_icon_links
 from .pipelines.extract_text import extract_text
-from .pipelines.links_categorize import categorize_links
+from .pipelines.links_categorize import categorize_links, find_plaintext_urls
 from .pipelines.structure import build_structured, parse_quality
 
 
@@ -38,7 +38,10 @@ def run_extraction(pdf_bytes: bytes, out_dir: str) -> dict:
         pipeline_c = extract_icon_links(doc, images)
 
         annotate_image_flags(images, pipeline_c["icon_links"])
-        links = categorize_links(pipeline_a["links"], pipeline_c["icon_links"])
+        # Include bare/plain-text URLs (not clickable) alongside hyperlink and
+        # icon-embedded links so every link in the resume reaches the dashboard.
+        plain_urls = find_plaintext_urls(pipeline_a["text"])
+        links = categorize_links(pipeline_a["links"], pipeline_c["icon_links"], plain_urls)
         structured = build_structured(doc, pipeline_a["text"])
 
         link_uris = [link["uri"] for link in pipeline_a["links"]]
