@@ -39,6 +39,7 @@ export interface AdminJob {
 
 export interface BasicDetails {
   name_guess: string | null;
+  location_guess?: string | null;
   emails: string[];
   phones: string[];
   links: string[];

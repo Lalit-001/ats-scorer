@@ -65,6 +65,15 @@ function Pill({ children, href }: { children: React.ReactNode; href?: string }) 
   );
 }
 
+function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex gap-3">
+      <dt className="w-20 shrink-0 text-slate-500">{label}</dt>
+      <dd className={cn("min-w-0 break-words text-slate-800", mono && "font-mono text-[13px]")}>{value}</dd>
+    </div>
+  );
+}
+
 function DimensionRow({
   label,
   dim,
@@ -179,6 +188,63 @@ export function ApplicationDetailPage() {
         )}
       </Card>
 
+      {/* Candidate details — contact info + links, for a quick scan */}
+      <Card className="mb-4">
+        <h2 className={HEADING}>Candidate details</h2>
+        {(resume?.name || app.basicDetails?.name_guess) && (
+          <p className="text-lg font-semibold text-slate-900">
+            {resume?.name || app.basicDetails?.name_guess}
+          </p>
+        )}
+        <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+          {app.basicDetails?.emails?.length ? (
+            <Field label="Email" value={app.basicDetails.emails.join(", ")} mono />
+          ) : null}
+          {app.basicDetails?.phones?.length ? (
+            <Field label="Phone" value={app.basicDetails.phones.join(", ")} mono />
+          ) : null}
+          {app.basicDetails?.location_guess && (
+            <Field label="Location" value={app.basicDetails.location_guess} />
+          )}
+          {resume?.experienceYears != null && (
+            <Field label="Experience" value={`${resume.experienceYears} yrs`} />
+          )}
+        </dl>
+
+        {linkGroups.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <p className={SECTION_LABEL}>Links</p>
+            <div className="mt-2 space-y-1.5">
+              {linkGroups.map((category) => (
+                <div key={category} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="w-28 shrink-0 text-xs font-medium text-slate-500">
+                    {linkLabel(category)}
+                  </span>
+                  <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+                    {linksByCategory[category].map((l, i) => (
+                      <a
+                        key={i}
+                        href={l.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all text-sm text-indigo-600 hover:underline"
+                      >
+                        {l.url}
+                        {l.source && (
+                          <span className="ml-1 text-[10px] text-slate-400">
+                            {SOURCE_LABEL[l.source] ?? l.source}
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Evaluation — rubric breakdown + overall score */}
       {app.evaluation && (
         <Card className="mb-4">
@@ -275,32 +341,6 @@ export function ApplicationDetailPage() {
         </Card>
       )}
 
-      {/* Links — grouped by category, Unrecognized last */}
-      {links.length > 0 && (
-        <Card className="mb-4">
-          <h2 className={HEADING}>Links</h2>
-          <div className="space-y-3">
-            {linkGroups.map((category) => (
-              <div key={category}>
-                <p className={SECTION_LABEL}>{linkLabel(category)}</p>
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  {linksByCategory[category].map((l, i) => (
-                    <Pill key={i} href={l.url}>
-                      {l.url}
-                      {l.source && (
-                        <span className="ml-1.5 text-[10px] text-slate-400">
-                          {SOURCE_LABEL[l.source] ?? l.source}
-                        </span>
-                      )}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       {/* Parsed resume (structured) */}
       {resume && (
         <Card className="mb-4">
@@ -350,37 +390,6 @@ export function ApplicationDetailPage() {
                 {resume.experienceText}
               </pre>
             </div>
-          )}
-        </Card>
-      )}
-
-      {/* Basic details (LLM-free) */}
-      {app.basicDetails && (
-        <Card className="mb-4">
-          <h2 className={HEADING}>Basic details (from resume)</h2>
-          <dl className="space-y-2 text-sm">
-            {app.basicDetails.emails.length > 0 && (
-              <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-slate-500">Emails</dt>
-                <dd className="font-mono text-xs text-slate-800">{app.basicDetails.emails.join(", ")}</dd>
-              </div>
-            )}
-            {app.basicDetails.phones.length > 0 && (
-              <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-slate-500">Phones</dt>
-                <dd className="font-mono text-xs text-slate-800">{app.basicDetails.phones.join(", ")}</dd>
-              </div>
-            )}
-          </dl>
-          {app.basicDetails.text_preview && (
-            <details className="mt-4">
-              <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700">
-                Resume text preview
-              </summary>
-              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-600">
-                {app.basicDetails.text_preview}
-              </pre>
-            </details>
           )}
         </Card>
       )}
