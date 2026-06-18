@@ -52,9 +52,11 @@ export const IMAGE_SCHEMA = {
       type: "object",
       properties: {
         issuer: { type: "string" },
-        date: { type: "string" },
         name: { type: "string" },
-        title: { type: "string" },
+        recipient_name: { type: "string" },
+        issue_date: { type: "string" },
+        expiry_date: { type: "string" },
+        credential_id: { type: "string" },
       },
     },
   },
@@ -106,9 +108,11 @@ export function buildResumePrompt(pipelineA: { text: string; links: unknown[] })
 }
 
 export const IMAGE_PROMPT = [
-  "Look at this image extracted from a resume PDF. Classify it as one of:",
-  "certificate, profile_photo, logo, or other.",
-  "If it is a certificate, extract issuer, date, and the recipient name into `details`.",
+  "This image was extracted from a resume and is likely a certificate.",
+  "Classify it as certificate, profile_photo, logo, or other.",
+  "If it is a certificate, extract every detail you can into `details`:",
+  "issuer (organization), name (the credential/course title), recipient_name,",
+  "issue_date, expiry_date, and credential_id. Omit fields that are not present.",
   "Respond as JSON matching the schema.",
 ].join("\n");
 

@@ -142,8 +142,10 @@ adminRouter.get(
       resumeUrl: toFileUrl(app.resumePath),
       basicDetails: app.basicDetails ?? null,
       job: { title: app.job?.title, description: app.job?.description },
-      resume: runByStage("submodel_a")?.structuredOutput ?? null,
-      links: runByStage("submodel_c")?.structuredOutput ?? null,
+      resume: runByStage("structure")?.structuredOutput ?? null,
+      links:
+        (runByStage("structure")?.structuredOutput as { links?: unknown } | undefined)?.links ??
+        null,
       runs: (app.pipelineRuns ?? []).map((r) => ({
         stage: r.stage,
         status: r.status,
