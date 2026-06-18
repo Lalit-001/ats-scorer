@@ -160,6 +160,7 @@ adminRouter.get(
         ? {
             matchScore: app.evaluation.matchScore,
             recommendation: app.evaluation.recommendation,
+            dimensions: app.evaluation.dimensions ?? null,
             strengths: app.evaluation.strengths,
             gaps: app.evaluation.gaps,
           }

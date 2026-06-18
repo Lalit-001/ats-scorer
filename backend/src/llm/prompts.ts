@@ -83,15 +83,39 @@ export const LINKS_SCHEMA = {
   },
 } as const;
 
+const DIMENSION = {
+  type: "object",
+  properties: {
+    score: { type: "integer" },
+    reason: { type: "string" },
+  },
+  required: ["score", "reason"],
+} as const;
+
 export const EVAL_SCHEMA = {
   type: "object",
   properties: {
-    matchScore: { type: "integer" },
-    recommendation: { type: "string", enum: ["strong_match", "good_match", "reject"] },
+    dimensions: {
+      type: "object",
+      properties: {
+        hard_skills: DIMENSION,
+        experience_relevance: DIMENSION,
+        seniority_scope: DIMENSION,
+        education_certs: DIMENSION,
+        domain_knowledge: DIMENSION,
+      },
+      required: [
+        "hard_skills",
+        "experience_relevance",
+        "seniority_scope",
+        "education_certs",
+        "domain_knowledge",
+      ],
+    },
     strengths: { type: "array", items: { type: "string" } },
     gaps: { type: "array", items: { type: "string" } },
   },
-  required: ["matchScore", "recommendation", "strengths", "gaps"],
+  required: ["dimensions", "strengths", "gaps"],
 } as const;
 
 export function buildResumePrompt(pipelineA: { text: string; links: unknown[] }): string {
@@ -126,16 +150,32 @@ export function buildLinksPrompt(pipelineC: { icon_links: unknown[] }): string {
   ].join("\n");
 }
 
-export function buildEvalPrompt(jobDescription: string, structured: unknown): string {
+export function buildEvalPrompt(
+  jobDescription: string,
+  candidate: unknown,
+  signals: unknown,
+  maxBulletWords: number,
+  maxBullets: number,
+): string {
   return [
-    "You are an expert technical recruiter. Evaluate the candidate against the job description.",
-    "Return JSON with: matchScore (0-100 integer), recommendation (strong_match | good_match | reject),",
-    "strengths (array), and gaps (array). Base your judgement only on the data provided.",
+    "You are an expert technical recruiter scoring a candidate against a job description.",
+    "Score EACH of these five dimensions from 0-100 and give a one-line reason:",
+    "- hard_skills: overlap of required tools/languages/frameworks (exact or semantic).",
+    "- experience_relevance: do past roles and responsibilities mirror the target role?",
+    "- seniority_scope: does their level/scope match (individual contributor vs lead vs manager)?",
+    "- education_certs: are minimum degree/certification requirements met?",
+    "- domain_knowledge: experience in the relevant industry/domain.",
+    "",
+    `Then give the most important strengths and gaps as short bullets — at most ${maxBulletWords} words each, at most ${maxBullets} of each. Be specific and apt, not generic.`,
+    "Do NOT output an overall score; only the five dimension scores. Judge only on the data provided.",
     "",
     "JOB DESCRIPTION:",
     jobDescription,
     "",
-    "CANDIDATE (structured from resume text, images, and embedded links):",
-    JSON.stringify(structured, null, 2),
+    "CANDIDATE (structured from the resume):",
+    JSON.stringify(candidate, null, 2),
+    "",
+    "PRECOMPUTED SIGNALS (deterministic, for reference):",
+    JSON.stringify(signals),
   ].join("\n");
 }
