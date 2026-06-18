@@ -3,7 +3,9 @@ import { Router } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
+import { unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { Op, fn, col, where, UniqueConstraintError } from "sequelize";
 import { JobDescription, Application } from "../db/models/index.js";
 import { config } from "../config.js";
 import { enqueueApplication } from "../queue/queue.js";
@@ -45,13 +47,22 @@ publicRouter.post(
   "/jobs/:slug/apply",
   upload.single("resume"),
   ah(async (req, res) => {
+    // multer has already saved the upload to disk by now; remove it on any rejection.
+    const removeUpload = async () => {
+      if (req.file?.path) await unlink(req.file.path).catch(() => {});
+    };
+
     const job = await JobDescription.findOne({ where: { slug: req.params.slug } });
     if (!job) {
+      await removeUpload();
       res.status(404).json({ error: "Job not found" });
       return;
     }
-    const { name, email } = req.body ?? {};
+
+    const name = String(req.body?.name ?? "").trim();
+    const email = String(req.body?.email ?? "").trim();
     if (!name || !email) {
+      await removeUpload();
       res.status(400).json({ error: "name and email are required" });
       return;
     }
@@ -60,14 +71,34 @@ publicRouter.post(
       return;
     }
 
-    const application = await Application.create({
-      jobId: job.id,
-      name,
-      email,
-      resumePath: req.file.path,
-      status: "uploaded",
+    // One application per (job, email), case-insensitive.
+    const duplicate = await Application.findOne({
+      where: { jobId: job.id, [Op.and]: [where(fn("lower", col("email")), email.toLowerCase())] },
     });
-    await enqueueApplication(application.id);
-    res.status(202).json({ id: application.id, status: application.status });
+    if (duplicate) {
+      await removeUpload();
+      res.status(409).json({ error: "You have already applied to this job with this email." });
+      return;
+    }
+
+    try {
+      const application = await Application.create({
+        jobId: job.id,
+        name,
+        email,
+        resumePath: req.file.path,
+        status: "uploaded",
+      });
+      await enqueueApplication(application.id);
+      res.status(202).json({ id: application.id, status: application.status });
+    } catch (err) {
+      // Lost the race against a concurrent submit — the unique index caught it.
+      if (err instanceof UniqueConstraintError) {
+        await removeUpload();
+        res.status(409).json({ error: "You have already applied to this job with this email." });
+        return;
+      }
+      throw err;
+    }
   }),
 );
