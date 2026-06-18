@@ -17,7 +17,27 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
-import { relativeTime } from "../lib/format";
+import { relativeTime, categorizeUrl } from "../lib/format";
+
+/** Compact "who has what" chips for fast list scanning. */
+function Presence({ row }: { row: ApplicantRow }) {
+  const cats = new Set((row.basicDetails?.links ?? []).map(categorizeUrl));
+  const chips: string[] = [];
+  if (cats.has("github")) chips.push("GitHub");
+  if (cats.has("linkedin")) chips.push("LinkedIn");
+  if (cats.has("portfolio")) chips.push("Portfolio");
+  if (row.hasCertificate) chips.push("🎓 Cert");
+  if (chips.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {chips.map((c) => (
+        <span key={c} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 const STATUS_OPTIONS = ["all", "uploaded", "processing", "completed", "failed"] as const;
 const REC_OPTIONS = [
@@ -106,6 +126,7 @@ export function JobApplicants() {
               >
                 📄 Resume
               </a>
+              <Presence row={a} />
               {a.status === "failed" && a.errorMessage && (
                 <div className="mt-1 text-xs text-rose-600">
                   ⚠ {a.errorStage}: {a.errorMessage}

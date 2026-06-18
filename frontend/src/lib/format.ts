@@ -6,6 +6,39 @@ export function scoreTone(score: number): { text: string; bar: string; track: st
   return { text: "text-rose-600", bar: "bg-rose-500", track: "bg-rose-100" };
 }
 
+export const LINK_LABELS: Record<string, string> = {
+  linkedin: "LinkedIn",
+  github: "GitHub",
+  gitlab: "GitLab",
+  twitter: "Twitter / X",
+  leetcode: "LeetCode",
+  hackerrank: "HackerRank",
+  codeforces: "Codeforces",
+  stackoverflow: "Stack Overflow",
+  kaggle: "Kaggle",
+  medium: "Medium",
+  behance: "Behance",
+  dribbble: "Dribbble",
+  youtube: "YouTube",
+  portfolio: "Portfolio",
+  other: "Unrecognized links",
+};
+
+export function linkLabel(category: string): string {
+  return LINK_LABELS[category] ?? category;
+}
+
+/** Lightweight client-side categorizer for raw URLs (used for list-row icons). */
+export function categorizeUrl(url: string): string {
+  const u = url.toLowerCase();
+  if (u.includes("linkedin.com")) return "linkedin";
+  if (u.includes("github.com")) return "github";
+  if (u.includes("gitlab.com")) return "gitlab";
+  if (u.includes("twitter.com") || u.includes("x.com")) return "twitter";
+  if (/github\.io|vercel\.app|netlify\.app|gitlab\.io/.test(u)) return "portfolio";
+  return "other";
+}
+
 const REC_LABELS: Record<string, string> = {
   strong_match: "Strong match",
   good_match: "Good match",

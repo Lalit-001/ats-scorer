@@ -45,6 +45,39 @@ export interface BasicDetails {
   text_preview: string;
 }
 
+export interface CategorizedLink {
+  category: string;
+  url: string;
+  source?: string;
+}
+
+export interface EvaluationDimension {
+  score: number;
+  weight: number;
+  reason: string;
+}
+
+export interface ParsedCandidate {
+  name: string | null;
+  skills: string[];
+  experienceYears: number | null;
+  experienceText: string;
+  education: string[];
+  certifications: string[];
+  links?: CategorizedLink[];
+  source?: string;
+}
+
+export interface CertificateDetails {
+  issuer?: string;
+  name?: string;
+  recipient_name?: string;
+  issue_date?: string;
+  expiry_date?: string;
+  credential_id?: string;
+  verify_url?: string;
+}
+
 export interface ApplicantRow {
   id: string;
   name: string;
@@ -56,6 +89,7 @@ export interface ApplicantRow {
   basicDetails: BasicDetails | null;
   matchScore: number | null;
   recommendation: string | null;
+  hasCertificate: boolean;
   createdAt: string;
 }
 
@@ -69,13 +103,14 @@ export interface ApplicationDetail {
   resumeUrl: string;
   basicDetails: BasicDetails | null;
   job: { title: string; description: string };
-  resume: any;
-  links: any;
+  resume: ParsedCandidate | null;
+  links: CategorizedLink[] | null;
   runs: { stage: string; status: string; error: string | null }[];
-  images: { imageType: string | null; details: any; url: string }[];
+  images: { imageType: string | null; details: CertificateDetails | null; url: string }[];
   evaluation: {
     matchScore: number;
     recommendation: string;
+    dimensions: Record<string, EvaluationDimension> | null;
     strengths: string[];
     gaps: string[];
   } | null;

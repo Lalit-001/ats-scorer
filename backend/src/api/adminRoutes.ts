@@ -94,7 +94,10 @@ adminRouter.get(
     const apps = await Application.findAll({
       where: { jobId: req.params.id },
       order: [["createdAt", "DESC"]],
-      include: [{ model: Evaluation, as: "evaluation" }],
+      include: [
+        { model: Evaluation, as: "evaluation" },
+        { model: ExtractedImage, as: "extractedImages", attributes: ["imageType"] },
+      ],
     });
     res.json(
       apps.map((a) => ({
@@ -108,6 +111,7 @@ adminRouter.get(
         basicDetails: a.basicDetails ?? null,
         matchScore: a.evaluation?.matchScore ?? null,
         recommendation: a.evaluation?.recommendation ?? null,
+        hasCertificate: (a.extractedImages ?? []).some((i) => i.imageType === "certificate"),
         createdAt: a.createdAt,
       })),
     );
