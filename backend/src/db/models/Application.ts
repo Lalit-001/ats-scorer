@@ -16,6 +16,7 @@ export type ApplicationStatus = "uploaded" | "processing" | "completed" | "faile
 
 export interface BasicDetails {
   name_guess: string | null;
+  location_guess?: string | null;
   emails: string[];
   phones: string[];
   links: string[];

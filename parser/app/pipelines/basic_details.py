@@ -8,6 +8,9 @@ import re
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
 PHONE_RE = re.compile(r"(?<!\w)\+?\d[\d\s().-]{7,}\d(?!\w)")
+# Best-effort "City, ST" (US-style) appearing in the contact header near the top.
+# Requires exactly two trailing capitals so skill lists ("…, AWS") don't match.
+LOCATION_RE = re.compile(r"\b([A-Z][A-Za-z.'-]+(?:\s[A-Z][A-Za-z.'-]+)*,\s*[A-Z]{2})\b")
 
 PREVIEW_CHARS = 600
 
@@ -47,9 +50,16 @@ def _phones(text: str):
     return _unique(phones)
 
 
+def _guess_location(text: str):
+    head = "\n".join(text.splitlines()[:8])
+    m = LOCATION_RE.search(head)
+    return m.group(1) if m else None
+
+
 def extract_basic_details(text: str, link_uris) -> dict:
     return {
         "name_guess": _guess_name(text),
+        "location_guess": _guess_location(text),
         "emails": _unique(EMAIL_RE.findall(text)),
         "phones": _phones(text),
         "links": _unique([*link_uris, *URL_RE.findall(text)]),

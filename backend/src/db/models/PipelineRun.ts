@@ -7,7 +7,7 @@ import {
 } from "sequelize";
 import { sequelize } from "../sequelize.js";
 
-export type Stage = "extract" | "submodel_a" | "submodel_b" | "submodel_c" | "main_eval";
+export type Stage = "extract" | "structure" | "certificates" | "evaluate";
 export type RunStatus = "pending" | "running" | "done" | "failed";
 
 export class PipelineRun extends Model<
@@ -29,10 +29,8 @@ PipelineRun.init(
   {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     applicationId: { type: DataTypes.UUID, allowNull: false },
-    stage: {
-      type: DataTypes.ENUM("extract", "submodel_a", "submodel_b", "submodel_c", "main_eval"),
-      allowNull: false,
-    },
+    // Plain string (not an enum) so pipeline stages can evolve without DB enum churn.
+    stage: { type: DataTypes.STRING, allowNull: false },
     status: {
       type: DataTypes.ENUM("pending", "running", "done", "failed"),
       allowNull: false,

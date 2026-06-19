@@ -86,6 +86,7 @@ export class SequelizePipelineRepo implements PipelineRepo {
       applicationId: id,
       matchScore: evaluation.matchScore,
       recommendation: evaluation.recommendation as Recommendation,
+      dimensions: evaluation.dimensions,
       strengths: evaluation.strengths,
       gaps: evaluation.gaps,
       rawLlmJson: evaluation,

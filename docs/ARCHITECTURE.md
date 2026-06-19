@@ -3,6 +3,11 @@
 Five views of the system. All diagrams are [Mermaid](https://mermaid.js.org/) — they render
 on GitHub and in most Markdown previewers.
 
+The pipeline is **deterministic-first**: PyMuPDF + Python do the structuring, link
+categorization, and certificate detection, so AI is used only where it earns its keep —
+**one** evaluation call for a clean resume (a structuring fallback and gated certificate
+vision fire only when needed), down from the old 3 + N calls.
+
 ---
 
 ## 1. Container topology
@@ -24,7 +29,7 @@ flowchart LR
     VOL["shared volume<br/>data: PDFs and images"]
   end
 
-  GEM[("Google Gemini API<br/>gemini-2.5-flash")]
+  GEM[("Google Gemini API<br/>gemini-1.5-flash")]
 
   B -->|"serves UI"| FE
   B -->|"REST /api"| API
@@ -38,7 +43,7 @@ flowchart LR
   WK -->|"POST /extract"| PR
   WK -->|"read / write"| DB
   WK -->|"read images"| VOL
-  WK -->|"sub-models + main eval"| GEM
+  WK -->|"structuring fallback, cert vision, eval"| GEM
 
   PR -->|"read PDF, write images"| VOL
 ```
@@ -65,11 +70,12 @@ sequenceDiagram
   FE->>API: GET /api/jobs/:slug
   API->>DB: find job by slug
   DB-->>API: job
-  API-->>FE: title + description
+  API-->>FE: title + rich-text description
 
   C->>FE: submit name, email, PDF
   FE->>API: POST /api/jobs/:slug/apply
   API->>API: validate PDF + size
+  API->>DB: reject if email already applied to job (409)
   API->>VOL: save resume to /data
   API->>DB: create Application status=uploaded
   API->>RD: enqueue process_application
@@ -78,12 +84,18 @@ sequenceDiagram
   Note over WK: worker picks up the job
   WK->>DB: status=processing
   WK->>PR: POST /extract with PDF
-  PR-->>WK: pipeline A/B/C raw JSON
-  WK->>G: sub-model A structure resume
-  WK->>G: sub-model B vision classify images
-  WK->>G: sub-model C categorize links
-  WK->>G: main evaluation + JD
-  G-->>WK: score, strengths, gaps, recommendation
+  PR-->>WK: structured (sections, skills, exp years),<br/>categorized links, image flags, parse_quality
+  WK->>DB: persist basic details + images (LLM-free)
+
+  alt parse_quality weak
+    WK->>G: structuring fallback (resume text)
+  end
+  opt likely_certificate images (capped)
+    WK->>G: vision — extract certificate details
+  end
+  WK->>G: evaluate vs JD — 5 rubric sub-scores + bullets
+  G-->>WK: dimension scores, strengths, gaps
+  WK->>WK: weighted score + recommendation (computed locally)
   WK->>DB: save Evaluation, status=completed
 
   loop poll every 4s
@@ -99,7 +111,7 @@ sequenceDiagram
 
 ## 3. Pipeline orchestration (fail-fast)
 
-The worker drives five stages. Each is recorded as a `PipelineRun` (running → done/failed).
+The worker drives four stages. Each is recorded as a `PipelineRun` (running → done/failed).
 **Any** stage that throws aborts the whole job, records *which* stage broke, and stops — no
 partial scoring. Recovery is an explicit admin **Re-process**.
 
@@ -108,17 +120,15 @@ flowchart TD
   start(["job: applicationId"]) --> proc["status = processing"]
   proc --> ex["Stage 1: extract<br/>POST parser /extract"]
   ex -->|ok| basics["persist basic details + images<br/>LLM-free, survives later failures"]
-  basics --> sa["Stage 2: submodel_a<br/>structure resume text"]
-  sa -->|ok| sb["Stage 3: submodel_b<br/>vision classify images"]
-  sb -->|ok| sc["Stage 4: submodel_c<br/>categorize icon links"]
-  sc -->|ok| me["Stage 5: main_eval<br/>score against JD"]
-  me -->|ok| done(["save Evaluation<br/>status = completed"])
+  basics --> st["Stage 2: structure<br/>parser output; LLM fallback only if parse_quality weak"]
+  st -->|ok| ce["Stage 3: certificates<br/>gated + capped vision (icons skipped)"]
+  ce -->|ok| ev["Stage 4: evaluate<br/>5 rubric sub-scores; weighted score computed locally"]
+  ev -->|ok| done(["save Evaluation + dimensions<br/>status = completed"])
 
   ex -->|throws| fail
-  sa -->|throws| fail
-  sb -->|throws| fail
-  sc -->|throws| fail
-  me -->|throws| fail
+  st -->|throws| fail
+  ce -->|throws| fail
+  ev -->|throws| fail
 
   fail["status = failed<br/>errorStage + errorMessage"] --> dash["dashboard shows error<br/>+ Re-process button"]
   dash -->|admin re-processes| reset["delete runs / images / eval<br/>status = uploaded"]
@@ -130,8 +140,10 @@ flowchart TD
   class done good;
 ```
 
-**Step 1 of the AI layer** = the three sub-models (A/B/C) turning raw pipeline output into
-structured JSON. **Step 2** = the main model combining all three + the JD into the final score.
+**Deterministic-first:** the parser categorizes links by domain and flags certificate-like
+images, so the link-structuring and per-image vision calls of the old design are gone. The LLM
+runs only for the final evaluation, plus a structuring fallback (weak parses) and gated
+certificate vision.
 
 ---
 
@@ -142,7 +154,7 @@ Usage is tracked in Redis: `rpm:<key>` (TTL 60s), `rpd:<key>` (TTL 24h), `gcool:
 
 ```mermaid
 flowchart TD
-  call["LLM call<br/>sub-model or main eval"] --> acq{"acquire a key"}
+  call["LLM call<br/>structuring fallback, cert vision, or eval"] --> acq{"acquire a key"}
 
   acq -->|"next key under RPM and RPD,<br/>not cooling down"| use["invoke Gemini with key<br/>increment rpm + rpd counters"]
   acq -->|"no key available"| exhausted["throw QuotaExhausted<br/>stage fails -> fail-fast"]
@@ -172,26 +184,26 @@ erDiagram
     uuid id PK
     string title
     string slug UK
-    string description
+    string description "rich-text HTML"
   }
   Application {
     uuid id PK
     uuid jobId FK
     string name
-    string email
+    string email "unique per job, case-insensitive"
     string resumePath
     enum status "uploaded|processing|completed|failed"
     string errorStage
     string errorMessage
-    json basicDetails "LLM-free: name, emails, phones, links, preview"
+    json basicDetails "LLM-free: name, location, emails, phones, links, preview"
   }
   PipelineRun {
     uuid id PK
     uuid applicationId FK
-    enum stage "extract|submodel_a|submodel_b|submodel_c|main_eval"
+    string stage "extract|structure|certificates|evaluate"
     enum status "pending|running|done|failed"
     json rawOutput
-    json structuredOutput
+    json structuredOutput "candidate (parser or LLM) incl. categorized links"
     string error
   }
   ExtractedImage {
@@ -200,15 +212,16 @@ erDiagram
     int imageIndex
     string imagePath
     enum imageType "certificate|profile_photo|logo|other"
-    json details
+    json details "issuer, name, recipient, dates, credential_id"
   }
   Evaluation {
     uuid id PK
     uuid applicationId FK "unique"
-    int matchScore
+    int matchScore "weighted from dimensions"
     enum recommendation "strong_match|good_match|reject"
-    json strengths
-    json gaps
+    json dimensions "5 rubric sub-scores + weight + reason"
+    json strengths "<= 5 bullets, <= 20 words"
+    json gaps "<= 5 bullets, <= 20 words"
     json rawLlmJson
   }
 ```
@@ -217,8 +230,17 @@ erDiagram
 
 ## Pipeline cheat-sheet
 
-| Pipeline | Owner | Extracts | Library / model |
-|----------|-------|----------|-----------------|
-| **A** Text + explicit links | parser | Resume text + clickable text URLs | PyMuPDF `get_text` / `get_links` |
-| **B** Images + OCR/vision | parser → worker | Embedded images; then certificate vs photo + details | PyMuPDF `extract_image` → Gemini vision |
-| **C** Icon-embedded links | parser | Hyperlinks whose rect overlaps an image (e.g. LinkedIn icon) | PyMuPDF link rects + bbox overlap |
+What the parser now derives deterministically (no AI), and where AI still runs.
+
+| Concern | Owner | How | AI? |
+|---------|-------|-----|-----|
+| Resume text | parser | PyMuPDF `get_text` (+ `get_text("dict")` for fonts) | No |
+| Sections / skills / experience-years / education | parser | font-size/bold header detection + regex + skill alias map | No |
+| Links (text + icon-embedded), categorized | parser | bbox overlap for icon links; domain map → `linkedin/github/…/other` | No |
+| Image triage | parser | `is_icon` / `likely_certificate` flags from size + link match | No |
+| Structuring fallback | worker | only when `parse_quality` is weak (messy/unusual layouts) | Gemini text |
+| Certificate details | worker | gated + capped vision on `likely_certificate` images | Gemini vision |
+| Evaluation | worker | JD + compact candidate → 5 rubric sub-scores; **weighted score computed locally** | Gemini text |
+
+**Rubric weights:** Hard Skills 35% · Experience Relevance 30% · Seniority/Scope 15% ·
+Education/Certifications 10% · Domain Knowledge 10% (fixed in config).

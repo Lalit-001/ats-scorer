@@ -94,7 +94,10 @@ adminRouter.get(
     const apps = await Application.findAll({
       where: { jobId: req.params.id },
       order: [["createdAt", "DESC"]],
-      include: [{ model: Evaluation, as: "evaluation" }],
+      include: [
+        { model: Evaluation, as: "evaluation" },
+        { model: ExtractedImage, as: "extractedImages", attributes: ["imageType"] },
+      ],
     });
     res.json(
       apps.map((a) => ({
@@ -108,6 +111,7 @@ adminRouter.get(
         basicDetails: a.basicDetails ?? null,
         matchScore: a.evaluation?.matchScore ?? null,
         recommendation: a.evaluation?.recommendation ?? null,
+        hasCertificate: (a.extractedImages ?? []).some((i) => i.imageType === "certificate"),
         createdAt: a.createdAt,
       })),
     );
@@ -142,8 +146,10 @@ adminRouter.get(
       resumeUrl: toFileUrl(app.resumePath),
       basicDetails: app.basicDetails ?? null,
       job: { title: app.job?.title, description: app.job?.description },
-      resume: runByStage("submodel_a")?.structuredOutput ?? null,
-      links: runByStage("submodel_c")?.structuredOutput ?? null,
+      resume: runByStage("structure")?.structuredOutput ?? null,
+      links:
+        (runByStage("structure")?.structuredOutput as { links?: unknown } | undefined)?.links ??
+        null,
       runs: (app.pipelineRuns ?? []).map((r) => ({
         stage: r.stage,
         status: r.status,
@@ -158,6 +164,7 @@ adminRouter.get(
         ? {
             matchScore: app.evaluation.matchScore,
             recommendation: app.evaluation.recommendation,
+            dimensions: app.evaluation.dimensions ?? null,
             strengths: app.evaluation.strengths,
             gaps: app.evaluation.gaps,
           }

@@ -9,6 +9,11 @@ import { sequelize } from "../sequelize.js";
 
 export type Recommendation = "strong_match" | "good_match" | "reject";
 
+export type EvaluationDimensions = Record<
+  string,
+  { score: number; weight: number; reason: string }
+>;
+
 export class Evaluation extends Model<
   InferAttributes<Evaluation>,
   InferCreationAttributes<Evaluation>
@@ -17,6 +22,7 @@ export class Evaluation extends Model<
   declare applicationId: string;
   declare matchScore: number;
   declare recommendation: Recommendation;
+  declare dimensions: CreationOptional<EvaluationDimensions | null>;
   declare strengths: string[];
   declare gaps: string[];
   declare rawLlmJson: unknown;
@@ -33,6 +39,7 @@ Evaluation.init(
       type: DataTypes.ENUM("strong_match", "good_match", "reject"),
       allowNull: false,
     },
+    dimensions: { type: DataTypes.JSONB, allowNull: true },
     strengths: { type: DataTypes.JSONB, allowNull: false },
     gaps: { type: DataTypes.JSONB, allowNull: false },
     rawLlmJson: { type: DataTypes.JSONB, allowNull: false },

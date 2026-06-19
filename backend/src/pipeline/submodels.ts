@@ -1,16 +1,13 @@
 /**
- * Step 1 of the AI layer: three sub-models that turn each pipeline's raw output
- * into structured JSON. Each takes an injected `call` (Gemini) so it is testable.
+ * AI helpers used only when deterministic parsing isn't enough:
+ *  - `structureResume`: LLM fallback that structures a resume from raw text
+ *    (used only when the parser's `parse_quality` is weak).
+ *  - `classifyCertificates`: vision classification of certificate-candidate
+ *    images (gated + capped by the orchestrator; icons/logos never reach here).
+ * Each takes an injected `call` (Gemini) so it stays testable.
  */
 import type { GeminiRequest } from "../llm/geminiClient.js";
-import {
-  buildResumePrompt,
-  RESUME_SCHEMA,
-  IMAGE_PROMPT,
-  IMAGE_SCHEMA,
-  buildLinksPrompt,
-  LINKS_SCHEMA,
-} from "../llm/prompts.js";
+import { buildResumePrompt, RESUME_SCHEMA, IMAGE_PROMPT, IMAGE_SCHEMA } from "../llm/prompts.js";
 
 export type GeminiCaller = (req: GeminiRequest) => Promise<any>;
 export type ImageLoader = (path: string) => Promise<{ mimeType: string; data: Buffer }>;
@@ -26,7 +23,7 @@ export interface ClassifiedImage {
   details: unknown;
 }
 
-/** Sub-model A: raw text + explicit links -> structured resume JSON. */
+/** Fallback: raw text + explicit links -> structured resume JSON (RESUME_SCHEMA). */
 export async function structureResume(
   pipelineA: { text: string; links: unknown[] },
   call: GeminiCaller,
@@ -34,8 +31,8 @@ export async function structureResume(
   return call({ prompt: buildResumePrompt(pipelineA), schema: RESUME_SCHEMA });
 }
 
-/** Sub-model B: classify each extracted image, extracting certificate details. */
-export async function classifyImages(
+/** Vision-classify certificate-candidate images and extract their details. */
+export async function classifyCertificates(
   images: RawImage[],
   call: GeminiCaller,
   loadImage: ImageLoader,
@@ -51,12 +48,4 @@ export async function classifyImages(
     out.push({ index: img.index, imageType: res.imageType, details: res.details ?? null });
   }
   return out;
-}
-
-/** Sub-model C: icon-embedded hyperlinks -> categorized links JSON. */
-export async function structureLinks(
-  pipelineC: { icon_links: unknown[] },
-  call: GeminiCaller,
-): Promise<any> {
-  return call({ prompt: buildLinksPrompt(pipelineC), schema: LINKS_SCHEMA });
 }

@@ -1,29 +1,24 @@
 /**
- * Pipeline orchestrator: drives an application through extract -> sub-models ->
- * main evaluation. Fail-fast: any stage error marks the application `failed`
- * (recording which stage broke) and stops; later stages do not run.
+ * Pipeline orchestrator: drives an application through extract -> structure ->
+ * certificates -> evaluate. Fail-fast: any stage error marks the application
+ * `failed` (recording which stage broke) and stops; later stages do not run.
+ *
+ * The heavy lifting is deterministic (the parser's `structured` output). AI is
+ * used only when needed: an LLM structuring fallback when parsing is weak, gated
+ * vision for certificate images, and the single final evaluation.
  *
  * All side effects go through injected collaborators (`PipelineRepo`, `extract`,
  * `call`, `loadImage`) so the control flow is unit-testable without a DB or network.
  */
-import { structureResume, classifyImages, structureLinks } from "./submodels.js";
+import { config } from "../config.js";
+import { structureResume, classifyCertificates } from "./submodels.js";
 import type { GeminiCaller, ImageLoader, RawImage, ClassifiedImage } from "./submodels.js";
+import { candidateFromParser, candidateFromLlm } from "./candidate.js";
+import type { Candidate, ExtractionResult } from "./candidate.js";
 import { evaluate, type EvaluationResult } from "./evaluator.js";
+import type { BasicDetails } from "../db/models/Application.js";
 
-export interface BasicDetails {
-  name_guess: string | null;
-  emails: string[];
-  phones: string[];
-  links: string[];
-  text_preview: string;
-}
-
-export interface ExtractionResult {
-  pipeline_a: { text: string; links: unknown[] };
-  pipeline_b: { images: RawImage[] };
-  pipeline_c: { icon_links: unknown[] };
-  basic_details: BasicDetails;
-}
+export type { ExtractionResult } from "./candidate.js";
 
 export interface PipelineRepo {
   getApplication(id: string): Promise<{ resumePath: string; jobDescription: string }>;
@@ -37,7 +32,7 @@ export interface PipelineRepo {
   saveEvaluation(id: string, evaluation: EvaluationResult): Promise<void>;
 }
 
-export type Stage = "extract" | "submodel_a" | "submodel_b" | "submodel_c" | "main_eval";
+export type Stage = "extract" | "structure" | "certificates" | "evaluate";
 
 export interface ProcessDeps {
   repo: PipelineRepo;
@@ -81,16 +76,29 @@ export async function processApplication(id: string, deps: ProcessDeps): Promise
     await repo.saveBasicDetails(id, raw.basic_details);
     await repo.saveExtractedImages(id, raw.pipeline_b.images);
 
-    const resume = await runStage(repo, id, "submodel_a", () => structureResume(raw.pipeline_a, call));
-    const images = await runStage(repo, id, "submodel_b", () =>
-      classifyImages(raw.pipeline_b.images, call, loadImage),
-    );
-    await repo.updateImageClassifications(id, images);
-    const links = await runStage(repo, id, "submodel_c", () => structureLinks(raw.pipeline_c, call));
+    // STRUCTURE: trust the parser's deterministic output; only fall back to the
+    // LLM when parsing came out weak (messy/unusual layout).
+    const candidate: Candidate = await runStage(repo, id, "structure", async () => {
+      if (raw.parse_quality.status === "good") {
+        return candidateFromParser(raw.structured, raw.links);
+      }
+      const llmResume = await structureResume(raw.pipeline_a, call);
+      return candidateFromLlm(llmResume, raw.links);
+    });
 
-    const structured = { resume, certificates: images, links };
-    const evaluation = await runStage(repo, id, "main_eval", () =>
-      evaluate(app.jobDescription, structured, call),
+    // CERTIFICATES: gated + capped vision. Icons/logos are skipped (their category
+    // already comes from the link domain); only certificate-like images reach the LLM.
+    const certImages = raw.pipeline_b.images
+      .filter((img) => img.likely_certificate)
+      .slice(0, config.maxVisionImages);
+    const certs = await runStage(repo, id, "certificates", () =>
+      classifyCertificates(certImages, call, loadImage),
+    );
+    await repo.updateImageClassifications(id, certs);
+
+    // EVALUATE: the single guaranteed LLM call, over the compact candidate JSON.
+    const evaluation = await runStage(repo, id, "evaluate", () =>
+      evaluate(app.jobDescription, candidate, call),
     );
     await repo.saveEvaluation(id, evaluation);
 
