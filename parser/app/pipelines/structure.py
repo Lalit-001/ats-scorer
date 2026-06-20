@@ -10,8 +10,8 @@ are unit-testable without building a PDF.
 """
 import re
 import statistics
-from datetime import datetime
 
+from .dates import total_experience_years
 from .normalize import normalize_skills
 
 _SECTION_SYNONYMS = {
@@ -109,27 +109,9 @@ def guess_name_from_lines(lines):
     return best[0] if best else None
 
 
-_YEAR = r"(?:19|20)\d{2}"
-# A start year, a separator, then an end year or an open-ended marker.
-_RANGE_RE = re.compile(
-    rf"({_YEAR})\s*(?:[-–—]|to)\s*((?:{_YEAR})|present|current|now|ongoing)",
-    re.IGNORECASE,
-)
-
-
-def estimate_total_years(text):
-    """Rough total years of experience by summing detected date ranges."""
-    if not text:
-        return 0.0
-    total = 0.0
-    now_year = datetime.now().year
-    for m in _RANGE_RE.finditer(text):
-        start = int(m.group(1))
-        end_tok = m.group(2).lower()
-        end = now_year if not end_tok.isdigit() else int(end_tok)
-        if 0 <= end - start <= 50:
-            total += end - start
-    return round(float(total), 1)
+# Date-range parsing lives in ``dates.py``; kept here under the original name so
+# existing callers/tests don't change.
+estimate_total_years = total_experience_years
 
 
 def _as_list(section_text, max_items=12):
