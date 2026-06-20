@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { initDb } from "./db/models/index.js";
 import { publicRouter } from "./api/publicRoutes.js";
 import { adminRouter } from "./api/adminRoutes.js";
+import { webhookRouter } from "./api/webhookRoutes.js";
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ app.use("/files", express.static(config.dataDir));
 
 app.use("/api", publicRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/webhook", webhookRouter);
 
 // Upload/validation errors (e.g. non-PDF, too large) surface as 400.
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {

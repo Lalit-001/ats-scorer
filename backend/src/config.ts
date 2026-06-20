@@ -8,6 +8,14 @@ export const config = {
   adminTokenSecret: process.env.ADMIN_TOKEN_SECRET ?? "dev-secret-change-me",
   dataDir: process.env.DATA_DIR ?? "/data",
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB ?? 10),
+  // Inbound email ingestion via Mailpit (SMTP catcher + webhook).
+  mailpit: {
+    // REST API base used to fetch the full message + download attachments.
+    apiUrl: process.env.MAILPIT_API_URL ?? "http://localhost:8025",
+    // Shared secret Mailpit sends as the Basic-auth password on the webhook call.
+    // Must match the password in MP_WEBHOOK_URL.
+    webhookSecret: process.env.EMAIL_WEBHOOK_SECRET ?? "dev-email-secret-change-me",
+  },
   // Cap on certificate vision calls per resume (the only per-image AI cost).
   maxVisionImages: Number(process.env.MAX_VISION_IMAGES ?? 2),
   // Weighted scoring rubric. The LLM returns per-dimension 0-100 sub-scores; we
