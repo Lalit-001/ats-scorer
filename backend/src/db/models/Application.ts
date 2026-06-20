@@ -12,7 +12,10 @@ import type { PipelineRun } from "./PipelineRun.js";
 import type { ExtractedImage } from "./ExtractedImage.js";
 import type { Evaluation } from "./Evaluation.js";
 
-export type ApplicationStatus = "uploaded" | "processing" | "completed" | "failed";
+export type ApplicationStatus = "uploaded" | "processing" | "completed" | "failed" | "orphan";
+
+/** Where the application came from: the web portal or an inbound email. */
+export type ApplicationSource = "web" | "email";
 
 export interface BasicDetails {
   name_guess: string | null;
@@ -28,10 +31,13 @@ export class Application extends Model<
   InferCreationAttributes<Application>
 > {
   declare id: CreationOptional<string>;
-  declare jobId: string;
+  // Null for orphan applications: an inbound email we couldn't map to a job.
+  declare jobId: string | null;
   declare name: string;
   declare email: string;
-  declare resumePath: string;
+  // Null when an email arrived without a PDF attachment (see errorMessage).
+  declare resumePath: string | null;
+  declare source: CreationOptional<ApplicationSource>;
   declare status: CreationOptional<ApplicationStatus>;
   declare errorStage: CreationOptional<string | null>;
   declare errorMessage: CreationOptional<string | null>;
@@ -48,12 +54,17 @@ export class Application extends Model<
 Application.init(
   {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-    jobId: { type: DataTypes.UUID, allowNull: false },
+    jobId: { type: DataTypes.UUID, allowNull: true },
     name: { type: DataTypes.STRING, allowNull: false },
     email: { type: DataTypes.STRING, allowNull: false },
-    resumePath: { type: DataTypes.STRING, allowNull: false },
+    resumePath: { type: DataTypes.STRING, allowNull: true },
+    source: {
+      type: DataTypes.ENUM("web", "email"),
+      allowNull: false,
+      defaultValue: "web",
+    },
     status: {
-      type: DataTypes.ENUM("uploaded", "processing", "completed", "failed"),
+      type: DataTypes.ENUM("uploaded", "processing", "completed", "failed", "orphan"),
       allowNull: false,
       defaultValue: "uploaded",
     },

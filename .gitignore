@@ -34,3 +34,5 @@ storage/
 tests/
 *.test.ts
 *.spec.ts
+
+test-resumes/

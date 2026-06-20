@@ -79,6 +79,7 @@ export async function processApplication(id: string, deps: ProcessDeps): Promise
     // STRUCTURE: trust the parser's deterministic output; only fall back to the
     // LLM when parsing came out weak (messy/unusual layout).
     const candidate: Candidate = await runStage(repo, id, "structure", async () => {
+
       if (raw.parse_quality.status === "good") {
         return candidateFromParser(raw.structured, raw.links);
       }

@@ -19,6 +19,9 @@ export class SequelizePipelineRepo implements PipelineRepo {
       include: [{ model: JobDescription, as: "job" }],
     });
     if (!app || !app.job) throw new Error(`Application ${id} not found`);
+    // Only processable (status="uploaded") applications are enqueued, and those
+    // always have a stored resume — guard so the type narrows and we fail loudly.
+    if (!app.resumePath) throw new Error(`Application ${id} has no resume file`);
     return { resumePath: app.resumePath, jobDescription: app.job.description };
   }
 

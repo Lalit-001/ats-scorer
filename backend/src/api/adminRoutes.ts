@@ -16,7 +16,7 @@ import { ah } from "./asyncHandler.js";
 
 export const adminRouter = Router();
 
-const toFileUrl = (p: string) => "/files" + p.slice(config.dataDir.length);
+const toFileUrl = (p: string | null) => (p ? "/files" + p.slice(config.dataDir.length) : null);
 
 adminRouter.post("/login", login);
 adminRouter.use(requireAdmin);

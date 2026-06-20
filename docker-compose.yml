@@ -49,6 +49,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       PARSER_URL: ${PARSER_URL}
+      MAILPIT_API_URL: ${MAILPIT_API_URL:-http://mailpit:8025}
+      EMAIL_WEBHOOK_SECRET: ${EMAIL_WEBHOOK_SECRET:-dev-email-secret-change-me}
     volumes:
       - appdata:/data
     depends_on:
@@ -76,6 +78,18 @@ services:
         condition: service_healthy
       parser:
         condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:latest
+    environment:
+      # Fire a webhook to the API for every received message. The Basic-auth
+      # password here MUST match EMAIL_WEBHOOK_SECRET on the api service.
+      MP_WEBHOOK_URL: ${MP_WEBHOOK_URL:-http://ats:dev-email-secret-change-me@api:4000/api/webhook/email}
+    ports:
+      - "1025:1025" # SMTP — send test resumes here (e.g. via swaks)
+      - "8025:8025" # Web UI + REST API
+    depends_on:
+      - api
 
   frontend:
     build: ./frontend
