@@ -140,9 +140,9 @@ sequenceDiagram
 
   C->>MP: email PDF (job UUID in body) → SMTP :1025
   MP->>API: POST /api/webhook/email (Basic auth, message ID)
-  API->>API: verify shared secret (constant-time); always ack 200
+  API->>API: verify shared secret (constant-time), always ack 200
   API->>MP: GET full message + download PDF attachment
-  API->>DB: resolve job by UUID; dedupe by (job, email)
+  API->>DB: resolve job by UUID, dedupe by (job, email)
   Note over API,DB: job + PDF → uploaded (enqueue) · job + no PDF → failed ·<br/>no job → orphan (awaits manual assignment)
   API->>RD: enqueue (only when status=uploaded)
 ```
