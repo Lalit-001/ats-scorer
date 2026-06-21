@@ -36,3 +36,5 @@ tests/
 *.spec.ts
 
 test-resumes/
+backups/
+

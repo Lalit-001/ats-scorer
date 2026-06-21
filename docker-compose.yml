@@ -43,6 +43,9 @@ services:
 
   api:
     build: ./backend
+    # Legacy Node backend — superseded by api-py. Not started by default; run with
+    # `docker compose --profile legacy up` to bring the Node stack back.
+    profiles: ["legacy"]
     command: npm run start:api
     env_file: .env
     environment:
@@ -63,7 +66,51 @@ services:
 
   worker:
     build: ./backend
+    # Legacy Node worker — superseded by worker-py. See the `legacy` profile above.
+    profiles: ["legacy"]
     command: npm run start:worker
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PARSER_URL: ${PARSER_URL}
+    volumes:
+      - appdata:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      parser:
+        condition: service_started
+
+  # --- Python (FastAPI) backend, running side-by-side with the Node api/worker. ---
+  # Shares the same db / redis / parser / appdata. Isolated onto Redis logical DB 1
+  # (see backend-py config) so its ARQ queue + Gemini rate-store never collide with
+  # Node's BullMQ keys on DB 0. Published on 4001 to avoid clashing with Node's 4000.
+  api-py:
+    build: ./backend-py
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 4000"
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PARSER_URL: ${PARSER_URL}
+      MAILPIT_API_URL: ${MAILPIT_API_URL:-http://mailpit:8025}
+      EMAIL_WEBHOOK_SECRET: ${EMAIL_WEBHOOK_SECRET:-dev-email-secret-change-me}
+    volumes:
+      - appdata:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PY_PORT:-4001}:4000"
+
+  worker-py:
+    build: ./backend-py
+    command: arq app.queue.worker.WorkerSettings
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -84,22 +131,28 @@ services:
     environment:
       # Fire a webhook to the API for every received message. The Basic-auth
       # password here MUST match EMAIL_WEBHOOK_SECRET on the api service.
-      MP_WEBHOOK_URL: ${MP_WEBHOOK_URL:-http://ats:dev-email-secret-change-me@api:4000/api/webhook/email}
+      MP_WEBHOOK_URL: ${MP_WEBHOOK_URL:-http://ats:dev-email-secret-change-me@api-py:4000/api/webhook/email}
+      # Persist received messages to a SQLite DB on a volume so the inbox
+      # survives container restarts (Mailpit's default storage is in-memory only).
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpitdata:/data
     ports:
       - "1025:1025" # SMTP — send test resumes here (e.g. via swaks)
       - "8025:8025" # Web UI + REST API
     depends_on:
-      - api
+      - api-py
 
   frontend:
     build: ./frontend
     environment:
-      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:4000}
+      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:4001}
     ports:
       - "5173:5173"
     depends_on:
-      - api
+      - api-py
 
 volumes:
   pgdata:
   appdata:
+  mailpitdata:
